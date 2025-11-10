@@ -1,0 +1,30 @@
+
+App spec
+
+Build a minimal instant messenger using JavaScript, Node.js, and WebSockets.
+Files: server.js, public/client.js, public/index.html, public/style.css.
+Server runs on port 8080.
+Minimal styling focused on essential layout.
+Server assigns each client a unique ID in the format userXXXX (e.g., user1234).
+Left sidebar displays the online users list.
+Current user appears above the list as user1234 @me on the left, styled distinctly.
+Right side shows conversation tabs.
+Click any other user to start a 1:1 chat.
+Switch chats by clicking a user in the list or an existing tab.
+User list and conversation area have independent vertical scrollbars.
+Message input stays fixed at the bottom of the conversation area and does not scroll.
+
+
+# Runtime deps
+npm install express ws
+
+# Dev deps
+npm install --save-dev nodemon
+
+# test
+$ node server.js
+$ npm start
+$ npm run dev
+
+# open mumltiple browser windows
+# Server running on http://localhost:8080

@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 8080;
 
 app.use(express.static(path.join(__dirname, 'public')));
 const server = app.listen(PORT, IP, () => {
-    console.log(`Server running on ${IP}:${PORT}`);
+    console.log(`Server running on http://${IP}:${PORT}`);
 });
 
 const wss = new WebSocket.Server({ server });

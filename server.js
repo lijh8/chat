@@ -2,12 +2,12 @@ const express = require('express');
 const WebSocket = require('ws');
 const path = require('path');
 const app = express();
+const IP = '192.168.1.3';
 const PORT = process.env.PORT || 8080;
 
 app.use(express.static(path.join(__dirname, 'public')));
-
-const server = app.listen(PORT, '192.168.1.3', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+const server = app.listen(PORT, IP, () => {
+    console.log(`Server running on ${IP}:${PORT}`);
 });
 
 const wss = new WebSocket.Server({ server });
@@ -85,6 +85,6 @@ wss.on('connection', (ws) => {
     });
 
     ws.on('error', (error) => {
-        console.error(`WebSocket error for ${username}:`, error);
+        console.error(`WebSocket error for ${username}: `, error);
     });
 });

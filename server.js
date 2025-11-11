@@ -1,16 +1,22 @@
-const express = require('express');
-const WebSocket = require('ws');
-const path = require('path');
-const app = express();
+import express from 'express';
+import path from 'node:path'
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+import { WebSocketServer } from 'ws';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const IP = '192.168.1.3';
 const PORT = process.env.PORT || 8080;
+
+const app = express();
 
 app.use(express.static(path.join(__dirname, 'public')));
 const server = app.listen(PORT, IP, () => {
     console.log(`Server running on http://${IP}:${PORT}`);
 });
 
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocketServer({ server });
 
 let userCounter = 1;
 const users = new Map();

@@ -1,29 +1,95 @@
 class MessengerApp {
     constructor() {
-        this.ws = null;
+        this.socket = null;
         this.username = null;
         this.activeChat = null;
         this.chats = new Map();
         this.onlineUsers = new Set();
+        this.serverAvailable = true;
         this.initializeApp();
     }
 
     initializeApp() {
-        this.connectWebSocket();
+        this.connectSocket();
     }
 
-    connectWebSocket() {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}`;
-        this.ws = new WebSocket(wsUrl);
+    connectSocket() {
+        this.socket = io();
 
-        this.ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            this.handleMessage(data);
-        };
-        this.ws.onclose = () => {
-            setTimeout(() => this.connectWebSocket(), 3000);
-        };
+        this.socket.on('connect', () => {
+            console.log('Connected to server');
+            this.serverAvailable = true;
+            this.updateConnectionStatus(true);
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            this.serverAvailable = false;
+            this.updateConnectionStatus(false);
+        });
+
+        this.socket.on('connect_error', (error) => {
+            console.error('Connection error:', error);
+            this.serverAvailable = false;
+            this.updateConnectionStatus(false);
+        });
+
+        this.socket.on('init', (data) => {
+            this.handleMessage({ type: 'init', ...data });
+        });
+
+        this.socket.on('userList', (data) => {
+            this.handleMessage({ type: 'userList', ...data });
+        });
+
+        this.socket.on('privateMessage', (data) => {
+            this.handleMessage({ type: 'privateMessage', ...data });
+        });
+    }
+
+    async checkServerStatus() {
+        try {
+            const response = await fetch('/health', {
+                method: 'GET',
+                timeout: 5000
+            });
+
+            if (response.ok) {
+                this.serverAvailable = true;
+                this.updateConnectionStatus(true);
+                return true;
+            } else {
+                this.serverAvailable = false;
+                this.updateConnectionStatus(false);
+                return false;
+            }
+        } catch (error) {
+            console.error('Server health check failed:', error);
+            this.serverAvailable = false;
+            this.updateConnectionStatus(false);
+            return false;
+        }
+    }
+
+    updateConnectionStatus(connected) {
+        const statusElement = document.getElementById('connectionStatus') || this.createStatusElement();
+        statusElement.textContent = connected ? '🟢 Connected' : '🔴 Disconnected';
+        statusElement.className = `connection-status ${connected ? 'connected' : 'disconnected'}`;
+
+        this.serverAvailable = connected;
+    }
+
+    createStatusElement() {
+        const statusElement = document.createElement('div');
+        statusElement.id = 'connectionStatus';
+        statusElement.className = 'connection-status connected';
+
+        const userList = document.getElementById('userList');
+        if (userList) {
+            userList.appendChild(statusElement);
+        }
+
+        return statusElement;
     }
 
     handleMessage(data) {
@@ -56,6 +122,9 @@ class MessengerApp {
         const otherUsers = users.filter(user => user.username !== this.username);
         otherUsers.forEach(user => this.onlineUsers.add(user.username));
         const userList = document.getElementById('userList');
+
+        const statusElement = document.getElementById('connectionStatus');
+
         userList.innerHTML = '';
 
         otherUsers.forEach(user => {
@@ -65,6 +134,10 @@ class MessengerApp {
             userItem.addEventListener('click', () => this.startChat(user.username));
             userList.appendChild(userItem);
         });
+
+        if (statusElement) {
+            userList.appendChild(statusElement);
+        }
     }
 
     startChat(targetUser) {
@@ -165,10 +238,28 @@ class MessengerApp {
         this.renderMessages(from);
     }
 
-    sendMessage(targetUser) {
+    async sendMessage(targetUser) {
         const input = document.getElementById(`input-${targetUser}`);
         const message = input.value.trim();
         if (!message) return;
+
+        const isServerAvailable = await this.checkServerStatus();
+        if (!isServerAvailable) {
+            if (!this.chats.has(targetUser)) {
+                this.createChatTab(targetUser);
+            }
+
+            const chat = this.chats.get(targetUser);
+            chat.messages.push({
+                from: 'System',
+                message: '❌ Server unavailable. Cannot send message.',
+                timestamp: new Date().toISOString(),
+                type: 'error'
+            });
+            this.renderMessages(targetUser);
+            input.value = '';
+            return;
+        }
 
         if (!this.onlineUsers.has(targetUser)) {
             if (!this.chats.has(targetUser)) {
@@ -199,11 +290,11 @@ class MessengerApp {
         });
 
         this.renderMessages(targetUser);
-        this.ws.send(JSON.stringify({
-            type: 'privateMessage',
+
+        this.socket.emit('privateMessage', {
             to: targetUser,
             message: message
-        }));
+        });
 
         input.value = '';
     }
@@ -234,8 +325,8 @@ class MessengerApp {
     escapeHtml(unsafe) {
         return unsafe
             .replace(/&/g, "&amp;")
-            .replace(/</g, "<")
-            .replace(/>/g, ">")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
     }

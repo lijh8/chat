@@ -61,6 +61,27 @@ body {
     font-weight: normal;
 }
 
+.connection-status {
+    padding: 15px;
+    font-size: 0.9em;
+    border-top: 1px solid #ddd;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: auto;
+}
+
+.connection-status.connected {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+}
+
+.connection-status.disconnected {
+    background-color: #ffebee;
+    color: #c62828;
+}
+
 .main {
     flex: 1;
     display: flex;
@@ -158,6 +179,8 @@ body {
     border-top: 1px solid #ddd;
     display: flex;
     gap: 10px;
+    height: 70px;
+    align-items: center;
 }
 
 .message-input {

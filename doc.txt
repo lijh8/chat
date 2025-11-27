@@ -18,9 +18,6 @@ Message input stays fixed at the bottom of the conversation area and does not sc
 # Runtime deps
 npm install express ws
 
-# Dev deps
-npm install --save-dev nodemon
-
 # test
 $ node server.js
 $ npm start

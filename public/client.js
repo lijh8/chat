@@ -14,37 +14,40 @@ class MessengerApp {
     }
 
     connectSocket() {
-        this.socket = io();
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
+        this.socket = new WebSocket(wsUrl);
 
-        this.socket.on('connect', () => {
+        this.socket.onopen = () => {
             console.log('Connected to server');
             this.serverAvailable = true;
             this.updateConnectionStatus(true);
-        });
+        };
 
-        this.socket.on('disconnect', () => {
+        this.socket.onclose = () => {
             console.log('Disconnected from server');
             this.serverAvailable = false;
             this.updateConnectionStatus(false);
-        });
 
-        this.socket.on('connect_error', (error) => {
-            console.error('Connection error:', error);
+            setTimeout(() => {
+                this.connectSocket();
+            }, 3000);
+        };
+
+        this.socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
             this.serverAvailable = false;
             this.updateConnectionStatus(false);
-        });
+        };
 
-        this.socket.on('init', (data) => {
-            this.handleMessage({ type: 'init', ...data });
-        });
-
-        this.socket.on('userList', (data) => {
-            this.handleMessage({ type: 'userList', ...data });
-        });
-
-        this.socket.on('privateMessage', (data) => {
-            this.handleMessage({ type: 'privateMessage', ...data });
-        });
+        this.socket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                this.handleMessage(data);
+            } catch (error) {
+                console.error('Error parsing message:', error);
+            }
+        };
     }
 
     async checkServerStatus() {
@@ -291,10 +294,15 @@ class MessengerApp {
 
         this.renderMessages(targetUser);
 
-        this.socket.emit('privateMessage', {
-            to: targetUser,
-            message: message
-        });
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify({
+                type: 'privateMessage',
+                to: targetUser,
+                message: message
+            }));
+        } else {
+            console.error('WebSocket not connected');
+        }
 
         input.value = '';
     }

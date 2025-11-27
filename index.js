@@ -1,12 +1,12 @@
 import express from 'express';
-import path from 'node:path'
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
-import { Server } from 'socket.io';
+import { WebSocketServer } from 'ws';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const IP = '192.168.1.3';
+const IP = '192.168.1.17';
 const PORT = process.env.PORT || 8080;
 
 const app = express();
@@ -21,7 +21,7 @@ const server = app.listen(PORT, IP, () => {
     console.log(`Server running on http://${IP}:${PORT}`);
 });
 
-const io = new Server(server);
+const wss = new WebSocketServer({ server });
 
 let userCounter = 1;
 const users = new Map();
@@ -37,45 +37,56 @@ function broadcastUserList() {
         connectionTime: user.connectionTime
     }));
 
-    io.emit('userList', { users: userList });
+    const message = JSON.stringify({ type: 'userList', users: userList });
+
+    users.forEach((ws, username) => {
+        if (ws.readyState === ws.OPEN) {
+            ws.send(message);
+        }
+    });
 }
 
-io.on('connection', (socket) => {
+wss.on('connection', (ws) => {
     const username = generateUsername();
     const connectionTime = new Date().toLocaleTimeString();
 
-    users.set(username, socket);
+    users.set(username, ws);
     userData.set(username, { username, connectionTime });
 
     console.log(`User ${username} connected`);
 
-    socket.emit('init', { username });
+    ws.send(JSON.stringify({ type: 'init', username }));
 
     broadcastUserList();
 
-    socket.on('privateMessage', (data) => {
+    ws.on('message', (data) => {
         try {
-            const targetSocket = users.get(data.to);
-            if (targetSocket) {
-                targetSocket.emit('privateMessage', {
-                    from: username,
-                    message: data.message,
-                    timestamp: new Date().toISOString()
-                });
+            const message = JSON.parse(data.toString());
+
+            if (message.type === 'privateMessage') {
+                const targetSocket = users.get(message.to);
+                if (targetSocket && targetSocket.readyState === targetSocket.OPEN) {
+                    targetSocket.send(JSON.stringify({
+                        type: 'privateMessage',
+                        from: username,
+                        message: message.message,
+                        timestamp: new Date().toISOString()
+                    }));
+                }
             }
         } catch (error) {
-            console.error('Error handling private message:', error);
+            console.error('Error handling message:', error);
         }
     });
 
-    socket.on('disconnect', () => {
+    ws.on('close', () => {
         users.delete(username);
         userData.delete(username);
         console.log(`User ${username} disconnected`);
         broadcastUserList();
     });
 
-    socket.on('error', (error) => {
-        console.error(`Socket error for ${username}: `, error);
+    ws.on('error', (error) => {
+        console.error(`WebSocket error for ${username}:`, error);
     });
 });
